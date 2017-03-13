@@ -19,30 +19,19 @@ public class VerifySign {
         System.loadLibrary("verifyso");
     }
 
-
-    public static String getSignature(Context context) {
+    public static String getSignatureMD5(Context context) {
         try {
 
             PackageInfo packageInfo = context.getPackageManager().getPackageInfo(context.getPackageName(), PackageManager.GET_SIGNATURES);
 
             Signature[] signatures = packageInfo.signatures;
 
-            return signatures[0].toCharsString();
-
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-
-        return null;
-    }
-
-    public static String getSignMD5(Context context) {
-        try {
             MessageDigest messageDigest = MessageDigest.getInstance("MD5");
 
-            return bytesToHexString(messageDigest.digest(getSignature(context).getBytes()));
-
-        } catch (NoSuchAlgorithmException e) {
+            return bytesToHexString(messageDigest.digest(signatures[0].toByteArray()));
+        } catch (PackageManager.NameNotFoundException e) {
+            e.printStackTrace();
+        }catch (NoSuchAlgorithmException e) {
             e.printStackTrace();
         }
         return null;
@@ -59,14 +48,14 @@ public class VerifySign {
             if (hv.length() < 2) {
                 stringBuilder.append(0);
             }
-            stringBuilder.append(hv+" ");
+            stringBuilder.append(hv);
         }
         return stringBuilder.toString();
     }
 
-    public native String getNativeSignature(Context context);
+    public static native String getNativeSignature(Context context);
 
-    public native String getNativePassword();
+    public static native String getNativePassword();
 
 
 }

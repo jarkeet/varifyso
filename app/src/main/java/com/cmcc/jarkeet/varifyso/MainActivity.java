@@ -16,9 +16,11 @@ public class MainActivity extends AppCompatActivity {
 
         // Example of a call to a native method
         TextView tv = (TextView) findViewById(R.id.sample_text);
-//        tv.setText(stringFromJNI());
+        tv.setText(stringFromJNI());
 
-        Log.i(TAG, VerifySign.getSignMD5(this));
+        Log.i(TAG, "getSignFrom java " + VerifySign.getSignatureMD5(this));
+        Log.i(TAG, "getSignFrom native " + VerifySign.getNativeSignature(this));
+        Log.i(TAG, "getNativePassword " + VerifySign.getNativePassword());
     }
 
     /**
@@ -27,9 +29,9 @@ public class MainActivity extends AppCompatActivity {
      */
     public native String stringFromJNI();
 
-    // Used to load the 'native-lib' library on application startup.
-//    static {
-//        System.loadLibrary("native-lib");
-//    }
+//     Used to load the 'native-lib' library on application startup.
+    static {
+        System.loadLibrary("native-lib");
+    }
 
 }

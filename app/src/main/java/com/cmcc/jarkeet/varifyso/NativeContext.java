@@ -22,7 +22,7 @@ public class NativeContext {
     /**
      * Set the app context
      */
-    static void setAppContext(Context appContext) {
+    public static void setAppContext(Context appContext) {
         sAppContext = appContext;
     }
 }

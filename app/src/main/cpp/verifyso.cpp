@@ -1,85 +1,24 @@
 //
 // Created by Jeff on 2017/3/10.
 //
+#include "verify.h"
+//#define RELEASE_MODE 0
 
+const char *VERIFYSIGN_CLASS_NAME = "com/cmcc/jarkeet/varifyso/VerifySign";//指定要注册的类 即nativie方法所在的类
 
-#include <jni.h>
-#include <string>
-#include "log.h"
-using namespace std;
+const char *JCONTEXT_CLASS_NAME = "com/cmcc/jarkeet/varifyso/NativeContext";//application class name
+const char *METHOD_NAME_GETAPPCONTEXT = "getAppContext";// java method get app context
+const char *METHOD_SIGNATURE_GETAPPCONTEXT = "()Landroid/content/Context;";//  method signature get app context
 
-#define RELEASE_MODE 1
+const char *APP_SIGNATURE = "E73A01DF5CC975430E44224A6F75C280";
 
-
-const char *ClassName = "com/cmcc/jarkeet/varifyso/VerifySign";//指定要注册的类 即nativie方法所在的类
-
-
-static jstring jniGetPassword(JNIEnv *env, jobject obj){
-
-    return env->NewStringUTF("password from jni");
-
-}
-
-void ByteToHexStr(const char *source, char *dest, int sourceLen) {
-    short i;
-    char highByte, lowByte;
-
-    for (i = 0; i < sourceLen; i++) {
-        highByte = source[i] >> 4;
-        lowByte = source[i] & 0x0f;
-        highByte += 0x30;
-
-        if (highByte > 0x39) {
-            dest[i * 2] = highByte + 0x07;
-        } else {
-            dest[i * 2] = highByte;
-        }
-
-        lowByte += 0x30;
-        if (lowByte > 0x39) {
-            dest[i * 2 + 1] = lowByte + 0x07;
-        } else {
-            dest[i * 2 + 1] = lowByte;
-        }
-    }
-}
-
-
-jstring ToMd5(JNIEnv *env, jbyteArray source) {
-    // MessageDigest类
-    jclass classMessageDigest = env->FindClass("java/security/MessageDigest");
-    // MessageDigest.getInstance()静态方法
-    jmethodID midGetInstance = env->GetStaticMethodID(classMessageDigest, "getInstance", "(Ljava/lang/String;)Ljava/security/MessageDigest;");
-    // MessageDigest object
-    jobject objMessageDigest = env->CallStaticObjectMethod(classMessageDigest, midGetInstance, env->NewStringUTF("md5"));
-
-    // update方法，这个函数的返回值是void，写V
-    jmethodID midUpdate = env->GetMethodID(classMessageDigest, "update", "([B)V");
-    env->CallVoidMethod(objMessageDigest, midUpdate, source);
-
-    // digest方法
-    jmethodID midDigest = env->GetMethodID(classMessageDigest, "digest", "()[B");
-    jbyteArray objArraySign = (jbyteArray) env->CallObjectMethod(objMessageDigest, midDigest);
-
-    jsize intArrayLength = env->GetArrayLength(objArraySign);
-    jbyte* byte_array_elements = env->GetByteArrayElements(objArraySign, NULL);
-    size_t length = (size_t) intArrayLength * 2 + 1;
-    char* char_result = (char*) malloc(length);
-    memset(char_result, 0, length);
-
-    // 将byte数组转换成16进制字符串，发现这里不用强转，jbyte和unsigned char应该字节数是一样的
-    ByteToHexStr((const char*)byte_array_elements, char_result, intArrayLength);
-    // 在末尾补\0
-    *(char_result + intArrayLength * 2) = '\0';
-    LOGD("print sign from jni %s", char_result);
-    jstring stringResult = env->NewStringUTF(char_result);
-    // release
-    env->ReleaseByteArrayElements(objArraySign, byte_array_elements, JNI_ABORT);
-    // 释放指针使用free
-    free(char_result);
-    return stringResult;
-}
-
+/**
+ * get App Signature by native
+ * @param env
+ * @param object
+ * @param contextObject
+ * @return
+ */
 jstring jniGetSignature(JNIEnv *env, jobject object, jobject contextObject) {
     jclass contextClass = env->FindClass("android/content/Context");//获取Context class
     jclass signatureClass = env->FindClass("android/content/pm/Signature");//获取Signature class
@@ -113,6 +52,52 @@ jstring jniGetSignature(JNIEnv *env, jobject object, jobject contextObject) {
 
 }
 
+/**
+ * check App Signature
+ * @param env
+ * @return
+ */
+static jboolean checkSignature(JNIEnv *env) {
+    //得到当前app的NativeContext
+    jclass classNativeContext = env->FindClass(JCONTEXT_CLASS_NAME);
+    //得到getAppContext静态方法
+    jmethodID midGetAppContext = env->GetStaticMethodID(classNativeContext,
+                                                        METHOD_NAME_GETAPPCONTEXT,
+                                                        METHOD_SIGNATURE_GETAPPCONTEXT);
+    //调用getAppContext方法得到conext对象
+    jobject appContext = env->CallStaticObjectMethod(classNativeContext, midGetAppContext);
+    jboolean result = JNI_FALSE;
+    if(appContext != NULL) {
+        jstring appSignature = jniGetSignature(env, NULL, appContext);
+        jstring releaseSignature = env->NewStringUTF(APP_SIGNATURE);
+        const char* charAppSignature = env->GetStringUTFChars(appSignature, NULL);
+        const char* charReleaseSignature = env->GetStringUTFChars(releaseSignature, NULL);
+        if(charAppSignature != NULL && charReleaseSignature != NULL) {
+            if(strcmp(charAppSignature, charReleaseSignature) == 0) {
+                result = JNI_TRUE;
+            }
+        }
+        env->ReleaseStringUTFChars(appSignature, charAppSignature);
+        env->ReleaseStringUTFChars(releaseSignature, charReleaseSignature);
+
+    }
+    if(result == JNI_TRUE) {
+        LOGI("jni checkSignature true");
+    } else {
+        LOGE("jni checkSignature --> failed");
+    }
+    return result;
+}
+
+static jstring jniGetPassword(JNIEnv *env, jobject obj){
+
+    jboolean authn = checkSignature(env);
+    if(authn) {
+        return env->NewStringUTF("password from jni : 123456");
+    } else {
+        return env->NewStringUTF("verify so error...no permission .");
+    }
+}
 
 /****
  * 声明需要动态注册的方法
@@ -139,8 +124,10 @@ static int registerNativeMethods(JNIEnv *env, const char *className, JNINativeMe
 }
 
 static int registerNatives(JNIEnv *env) {
-    return registerNativeMethods(env, ClassName, gMethods, sizeof(gMethods)/sizeof(JNINativeMethod));
+    return registerNativeMethods(env, VERIFYSIGN_CLASS_NAME, gMethods, sizeof(gMethods)/sizeof(JNINativeMethod));
 }
+
+
 
 JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
     JNIEnv *env;
@@ -158,21 +145,26 @@ JNIEXPORT jint JNICALL JNI_OnLoad(JavaVM* vm, void* reserved) {
     // RELEASE_MODE这个宏是通过编译脚本设定的，如果是release模式，
     // 则RELEASE_MODE=1，否则为0或者未定义
 #ifdef RELEASE_MODE
-//    if (RELEASE_MODE == 1) {
-//        // 检查当前应用的签名是否一致，如果不签名不一致的话，则直接退出
-//        if (checkSignature(env) != JNI_TRUE) {
-//            LOGE("The app signature is NOT correct, please check the apk signture. ");
-//            LOGI("Library JNI_OnLoad end ===========");
-//            return -1;
-//        } else {
-//            LOGI("    The app signature is correct.");
-//        }
-//    } else {
-//        // Do nothing
-//    }
+    if (RELEASE_MODE == 1) {
+        // 检查当前应用的签名是否一致，如果不签名不一致的话，则直接退出
+        if (checkSignature(env) != JNI_TRUE) {
+            LOGE("The release version app signature is NOT correct, please check the apk signture. ");
+            LOGI("Library JNI_OnLoad end ===========");
+            return -1;
+        } else {
+            LOGI("The app signature is correct.");
+        }
+    } else {
+        // Do nothing
+    }
 #endif
 
     LOGI("Library JNI_OnLoad end ===========");
     return JNI_VERSION_1_6;
+}
+
+JNIEXPORT void JNICALL JNI_OnUnload(JavaVM* vm, void* reserved) {
+    LOGI("Library JNI_OnUnload begin =========");
+    LOGI("Library JNI_OnUnload end ===========");
 }
 

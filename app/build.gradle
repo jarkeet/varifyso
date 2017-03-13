@@ -20,7 +20,7 @@ android {
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         externalNativeBuild {
             cmake {
-                cppFlags ""
+                cppFlags "-DRELEASE_MODE=1"
             }
         }
         signingConfig signingConfigs.config
@@ -33,6 +33,9 @@ android {
         }
         debug {
             signingConfig signingConfigs.config
+            ndk {
+                cFlags "-DRELEASE_MODE=1"
+            }
         }
     }
     externalNativeBuild {
