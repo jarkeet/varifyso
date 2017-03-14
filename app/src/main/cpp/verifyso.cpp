@@ -8,9 +8,32 @@ const char *VERIFYSIGN_CLASS_NAME = "com/cmcc/jarkeet/varifyso/VerifySign";//指
 
 const char *JCONTEXT_CLASS_NAME = "com/cmcc/jarkeet/varifyso/NativeContext";//application class name
 const char *METHOD_NAME_GETAPPCONTEXT = "getAppContext";// java method get app context
-const char *METHOD_SIGNATURE_GETAPPCONTEXT = "()Landroid/content/Context;";//  method signature get app context
+const char *SIGNATURE_GETAPPCONTEXT = "()Landroid/content/Context;";//  method signature get app context
 
 const char *APP_SIGNATURE = "E73A01DF5CC975430E44224A6F75C280";
+
+/**
+ *  jni method call java method
+ * @param env
+ * @param jobject
+ * @param contextObj
+ * @return
+ */
+jstring nativeGetSignMd5(JNIEnv *env, jobject object){
+    jclass classNativeContext = env->FindClass(JCONTEXT_CLASS_NAME);
+    jmethodID midGetAppContext = env->GetStaticMethodID(classNativeContext,
+                                                        METHOD_NAME_GETAPPCONTEXT,
+                                                        SIGNATURE_GETAPPCONTEXT);
+    jobject appContext = env->CallStaticObjectMethod(classNativeContext, midGetAppContext);
+
+    jclass javaCls = env->FindClass(VERIFYSIGN_CLASS_NAME);
+    jmethodID mid = env->GetStaticMethodID(javaCls, "getSignatureMD5", "(Landroid/content/Context;)Ljava/lang/String;");
+    jstring signMd5 = (jstring)env->CallStaticObjectMethod(javaCls, mid, appContext);
+    const char* signChars = env->GetStringUTFChars(signMd5, false);
+    LOGD("jni call java method to get sign md5 %s", signChars);
+    return signMd5;
+}
+
 
 /**
  * get App Signature by native
@@ -63,7 +86,7 @@ static jboolean checkSignature(JNIEnv *env) {
     //得到getAppContext静态方法
     jmethodID midGetAppContext = env->GetStaticMethodID(classNativeContext,
                                                         METHOD_NAME_GETAPPCONTEXT,
-                                                        METHOD_SIGNATURE_GETAPPCONTEXT);
+                                                        SIGNATURE_GETAPPCONTEXT);
     //调用getAppContext方法得到conext对象
     jobject appContext = env->CallStaticObjectMethod(classNativeContext, midGetAppContext);
     jboolean result = JNI_FALSE;
@@ -93,6 +116,7 @@ static jstring jniGetPassword(JNIEnv *env, jobject obj){
 
     jboolean authn = checkSignature(env);
     if(authn) {
+        nativeGetSignMd5(env, obj);
         return env->NewStringUTF("password from jni : 123456");
     } else {
         return env->NewStringUTF("verify so error...no permission .");
@@ -103,8 +127,8 @@ static jstring jniGetPassword(JNIEnv *env, jobject obj){
  * 声明需要动态注册的方法
  */
 static JNINativeMethod gMethods[] = {
-        {"getNativeSignature",     "(Landroid/content/Context;)Ljava/lang/String;", (void *) jniGetSignature}
-        ,{"getNativePassword",     "()Ljava/lang/String;",     (void *) jniGetPassword}
+        {"getNativeSignature",     "(Landroid/content/Context;)Ljava/lang/String;", (void *) jniGetSignature},
+        {"getNativePassword",     "()Ljava/lang/String;",     (void *) jniGetPassword}
 };
 
 

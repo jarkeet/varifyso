@@ -33,9 +33,6 @@ android {
         }
         debug {
             signingConfig signingConfigs.config
-            ndk {
-                cFlags "-DRELEASE_MODE=1"
-            }
         }
     }
     externalNativeBuild {
